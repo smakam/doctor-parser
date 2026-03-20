@@ -6,7 +6,8 @@ class Settings(BaseSettings):
     database_url: str
     supabase_url: str
     supabase_anon_key: str
-    supabase_jwt_secret: str
+    # No JWT secret needed — Supabase uses asymmetric RS256; public key is
+    # fetched automatically from {supabase_url}/auth/v1/.well-known/jwks.json
 
     google_vision_api_key: str
     openai_api_key: str
