@@ -25,13 +25,19 @@ class GeocodingResult:
 
 
 async def geocode(address: Optional[str], pin_code: Optional[str]) -> GeocodingResult:
+    _not_geocoded = GeocodingResult(
+        latitude=None, longitude=None,
+        city=None, state=None,
+        geocoding_status="NOT_GEOCODED",
+        geocoding_confidence=0.0,
+    )
+
     if not address and not pin_code:
-        return GeocodingResult(
-            latitude=None, longitude=None,
-            city=None, state=None,
-            geocoding_status="NOT_GEOCODED",
-            geocoding_confidence=0.0,
-        )
+        return _not_geocoded
+
+    settings = get_settings()
+    if not settings.mappls_client_id or not settings.mappls_client_secret:
+        return _not_geocoded
 
     token = await _get_mappls_token()
 

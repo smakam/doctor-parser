@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     imagekit_private_key: str
     imagekit_url_endpoint: str
 
-    mappls_client_id: str
-    mappls_client_secret: str
+    mappls_client_id: str = ""
+    mappls_client_secret: str = ""
 
     pii_encryption_key: str  # Fernet key — generate with: Fernet.generate_key().decode()
 
