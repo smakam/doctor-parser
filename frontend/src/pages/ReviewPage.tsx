@@ -230,6 +230,34 @@ export default function ReviewPage({ session: _session }: ReviewPageProps) {
                     </div>
                   </div>
                 </div>
+
+                {/* Geocoding result */}
+                {(extraction.extracted_data.latitude || extraction.extracted_data.longitude) ? (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Location Coordinates</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="px-3 py-2 text-sm border rounded-md bg-muted text-muted-foreground">
+                        <span className="text-xs text-muted-foreground block">Latitude</span>
+                        {extraction.extracted_data.latitude?.toFixed(6)}
+                      </div>
+                      <div className="px-3 py-2 text-sm border rounded-md bg-muted text-muted-foreground">
+                        <span className="text-xs text-muted-foreground block">Longitude</span>
+                        {extraction.extracted_data.longitude?.toFixed(6)}
+                      </div>
+                      <div className="px-3 py-2 text-sm border rounded-md bg-muted text-muted-foreground">
+                        <span className="text-xs text-muted-foreground block">Method</span>
+                        {extraction.geocoding_status.replace("_", " ")}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Location Coordinates</label>
+                    <div className="px-3 py-2 text-sm border rounded-md bg-muted text-muted-foreground">
+                      Not geocoded — {extraction.geocoding_status === "NOT_GEOCODED" ? "Mappls credentials pending or address not found" : extraction.geocoding_status}
+                    </div>
+                  </div>
+                )}
                 <FieldWithConfidence label="Consultation Timings" field={extraction.extracted_data.consultation_timings} fieldKey="consultation_timings" value={fields.consultation_timings} onChange={handleFieldChange} />
               </CardContent>
             </Card>

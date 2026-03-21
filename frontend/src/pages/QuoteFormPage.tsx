@@ -15,25 +15,30 @@ export default function QuoteFormPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const fields = location.state?.fields ?? {};
+  const extraction = location.state?.extraction;
   const [copied, setCopied] = useState<string | null>(null);
 
-  const quoteMapping: QuoteField[] = [
-    { quoteLabel: "Insured Name", quoteFieldName: "insured_name", value: fields.doctor_name ?? "" },
-    { quoteLabel: "Occupation / Type of Risk", quoteFieldName: "occupation", value: fields.specialisation ?? "" },
-    { quoteLabel: "Qualifications", quoteFieldName: "qualifications", value: fields.qualifications ?? "" },
-    { quoteLabel: "Registration Number", quoteFieldName: "registration_number", value: fields.medical_registration_no ?? "" },
-    { quoteLabel: "Risk Address", quoteFieldName: "risk_address", value: fields.address ?? "" },
-    { quoteLabel: "Risk Pin Code", quoteFieldName: "risk_pin_code", value: fields.pin_code ?? "" },
-  ].filter((f) => f.value);
+  const lat = extraction?.extracted_data?.latitude;
+  const lng = extraction?.extracted_data?.longitude;
+  const city = extraction?.extracted_data?.city;
+  const state = extraction?.extracted_data?.state;
+  const geocodingStatus = extraction?.geocoding_status;
 
-  const emptyFields: QuoteField[] = [
+  const allFieldDefs = [
     { quoteLabel: "Insured Name", quoteFieldName: "insured_name", value: fields.doctor_name ?? "" },
     { quoteLabel: "Occupation / Type of Risk", quoteFieldName: "occupation", value: fields.specialisation ?? "" },
     { quoteLabel: "Qualifications", quoteFieldName: "qualifications", value: fields.qualifications ?? "" },
     { quoteLabel: "Registration Number", quoteFieldName: "registration_number", value: fields.medical_registration_no ?? "" },
     { quoteLabel: "Risk Address", quoteFieldName: "risk_address", value: fields.address ?? "" },
     { quoteLabel: "Risk Pin Code", quoteFieldName: "risk_pin_code", value: fields.pin_code ?? "" },
-  ].filter((f) => !f.value);
+    { quoteLabel: "City", quoteFieldName: "risk_city", value: city ?? "" },
+    { quoteLabel: "State", quoteFieldName: "risk_state", value: state ?? "" },
+    { quoteLabel: "Latitude", quoteFieldName: "risk_latitude", value: lat != null ? String(lat) : "" },
+    { quoteLabel: "Longitude", quoteFieldName: "risk_longitude", value: lng != null ? String(lng) : "" },
+  ];
+
+  const quoteMapping: QuoteField[] = allFieldDefs.filter((f) => f.value);
+  const emptyFields: QuoteField[] = allFieldDefs.filter((f) => !f.value);
 
   const copyToClipboard = (value: string, key: string) => {
     navigator.clipboard.writeText(value);
@@ -67,6 +72,26 @@ export default function QuoteFormPage() {
             </p>
           </div>
         </div>
+
+        {/* Geocoding status */}
+        {geocodingStatus && geocodingStatus !== "NOT_GEOCODED" ? (
+          <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+            <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-blue-900">Location geocoded</p>
+              <p className="text-xs text-blue-700">
+                Method: {geocodingStatus.replace(/_/g, " ")} · Lat: {lat?.toFixed(6)}, Lng: {lng?.toFixed(6)}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Location not geocoded</p>
+              <p className="text-xs text-gray-500">Mappls credentials pending approval — lat/long will populate once approved</p>
+            </div>
+          </div>
+        )}
 
         {/* Populated fields */}
         {quoteMapping.length > 0 && (
