@@ -27,10 +27,10 @@ async def extract(
     Accessible to authenticated users and guest sessions.
     """
     import uuid as _uuid
-    session_id = str(_uuid.uuid4())
+    imagekit_session_id = str(_uuid.uuid4())  # used only for ImageKit folder path
 
     # Step 1 — upload images to ImageKit
-    image_results = await image_service.upload_images(files, session_id)
+    image_results = await image_service.upload_images(files, imagekit_session_id)
 
     # Step 2 — OCR all images in parallel
     ocr_results = await ocr_service.extract_text_all([r.url for r in image_results])
@@ -44,15 +44,17 @@ async def extract(
     geocoding = await geocoding_service.geocode(address_val, pin_val)
 
     # Step 5 — Assemble and persist
-    user_id = current_user.id if current_user else session_id
+    is_guest = not current_user or current_user.is_guest
+    user_id = current_user.id if current_user else None
     record = await result_service.assemble_and_save(
         db=db,
-        session_id=session_id,
+        session_id=imagekit_session_id,
         image_results=image_results,
         ocr_results=ocr_results,
         extraction=extraction,
         geocoding=geocoding,
         user_id=user_id,
+        is_guest=is_guest,
     )
 
     settings = get_settings()

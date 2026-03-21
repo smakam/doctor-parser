@@ -42,6 +42,7 @@ async def assemble_and_save(
     extraction: ExtractionResult,
     geocoding: GeocodingResult,
     user_id: Optional[str],
+    is_guest: bool = False,
 ) -> NameboardExtraction:
     settings = get_settings()
 
@@ -54,10 +55,20 @@ async def assemble_and_save(
         settings.pii_encryption_key,
     )
 
+    # Store user_id in session_id for access control.
+    # For authenticated users, also store in uploaded_by_customer_id.
+    # For guests, session_id is the only identifier we have.
+    customer_id = None
+    if user_id and not is_guest:
+        try:
+            customer_id = uuid.UUID(user_id)
+        except ValueError:
+            pass
+
     record = NameboardExtraction(
         id=uuid.uuid4(),
-        session_id=session_id,
-        uploaded_by_customer_id=uuid.UUID(user_id) if user_id and not _is_guest(user_id) else None,
+        session_id=user_id or session_id,  # user_id as access-control key
+        uploaded_by_customer_id=customer_id,
         imagekit_file_ids=[r.file_id for r in image_results],
         images_processed=len(ocr_results),
         overall_confidence=overall_confidence,
@@ -206,12 +217,3 @@ def _decrypt_pii(pii_data: Optional[dict], key: str) -> Optional[PiiData]:
         return PiiData(phones=raw.get("phones", []), emails=raw.get("emails", []))
     except Exception:
         return None
-
-
-def _is_guest(user_id: str) -> bool:
-    # Guest session IDs are not valid UUIDs (they're arbitrary session strings)
-    try:
-        uuid.UUID(user_id)
-        return False
-    except ValueError:
-        return True
