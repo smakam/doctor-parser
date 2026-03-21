@@ -8,7 +8,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export async function signInWithGoogle() {
   return supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${window.location.origin}/upload` },
+    options: { redirectTo: window.location.origin },
   });
 }
 
