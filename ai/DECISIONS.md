@@ -45,4 +45,48 @@ Keep entries dated and honest — document the reasoning, not just the outcome.
 
 ---
 
-[Future decisions follow the same format]
+## 2026-03-21 — Render Deployment Lessons
+
+**Context**: First deployment to Render free tier (static site for frontend, web service for backend).
+
+**Problems encountered and fixes:**
+
+1. **Vite env vars must be set before build, not after**
+   Vite bakes `VITE_*` variables into the JS bundle at build time. Setting them in Render after the first deploy requires a manual redeploy. Missing vars cause a blank page with a cryptic JS error (`supabaseUrl is required`).
+   → *Checklist: set all `VITE_*` env vars before the first deploy.*
+
+2. **Render static site rewrites do redirects, not rewrites**
+   Adding `/* → /index.html` via the Render UI caused a 302 redirect that stripped the `#access_token` hash fragment from the OAuth callback URL, breaking login.
+   → *Fix: change `redirectTo` in `signInWithOAuth` to `window.location.origin` (root) instead of a subpath. The root always serves `index.html` without needing a rewrite rule.*
+
+3. **Supabase uses ES256 (ECDSA), not RS256**
+   Newer Supabase projects sign JWTs with ES256, not RS256. Backend was silently swallowing the `alg not allowed` error, returning 401 with no useful log output.
+   → *Fix: use `algorithms=["RS256", "ES256"]` in jwt.decode. Add logging to JWT failures immediately — never swallow auth errors silently.*
+
+4. **Guest session lost after OAuth redirect**
+   `sessionStorage` is cleared by cross-origin redirects in some scenarios. After OAuth login, the guest session was gone, leaving no auth identity for the accept/correct calls.
+   → *Fix: always send both `Authorization` and `X-Guest-Session` headers. Backend falls back to guest session if JWT fails.*
+
+**Deployment checklist for future projects:**
+- Set all `VITE_*` frontend env vars before first build
+- Set `CORS_ORIGINS` on backend to the exact frontend URL
+- Use `redirectTo: window.location.origin` for OAuth on static hosts
+- Add Render URL to both Supabase Redirect URLs and Google OAuth authorized origins/redirects
+- Use `algorithms=["RS256", "ES256"]` for Supabase JWT verification
+- Log JWT failures — never silently swallow auth errors
+
+---
+
+## 2026-03-21 — Geocoding: Mappls → Google Maps
+
+**Context**: Mappls (MapmyIndia) was chosen for Indian address geocoding. All app types (web, cloud, mobile) consistently returned `invalid_token` despite the Geocoding API showing as active in the console.
+
+**Decision**: Switch to Google Maps Geocoding API using the same GCP key already used for Google Vision.
+
+**Reasoning**: No new credentials needed. Google Maps Geocoding works reliably for Indian addresses including pin codes. Mappls may require additional account-level approval that wasn't granted.
+
+**Impact**: `GOOGLE_VISION_API_KEY` now serves double duty for Vision OCR and geocoding. `MAPPLS_API_KEY` is retained in config for backwards compat but unused.
+
+**Related Files**: `backend/app/services/geocoding_service.py`
+
+---
