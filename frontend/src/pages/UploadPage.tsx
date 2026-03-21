@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, Upload, X, AlertCircle, Stethoscope, LogOut } from "lucide-react";
+import { Camera, Upload, X, AlertCircle, Stethoscope, LogOut, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -69,18 +69,26 @@ export default function UploadPage({ session }: UploadPageProps) {
           </div>
           <span className="font-semibold text-gray-900">Nameboard Extractor</span>
         </div>
-        {session ? (
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{session.user.email}</span>
-            <Button variant="ghost" size="sm" onClick={() => signOut()}>
-              <LogOut className="w-4 h-4" />
+        <div className="flex items-center gap-2">
+          {session && (
+            <Button variant="ghost" size="sm" onClick={() => navigate("/history")}>
+              <History className="w-4 h-4 mr-1" />
+              History
             </Button>
-          </div>
-        ) : (
-          <Button variant="outline" size="sm" onClick={() => navigate("/login")}>
-            Sign in
-          </Button>
-        )}
+          )}
+          {session ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">{session.user.email}</span>
+              <Button variant="ghost" size="sm" onClick={() => signOut()}>
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => navigate("/login")}>
+              Sign in
+            </Button>
+          )}
+        </div>
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-10 space-y-6">

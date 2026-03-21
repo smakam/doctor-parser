@@ -9,11 +9,12 @@ async function getHeaders(): Promise<HeadersInit> {
   const { data } = await supabase.auth.getSession();
   if (data.session?.access_token) {
     headers["Authorization"] = `Bearer ${data.session.access_token}`;
-  } else {
-    const guestSession = sessionStorage.getItem("guest_session");
-    if (guestSession) {
-      headers["X-Guest-Session"] = guestSession;
-    }
+  }
+
+  // Always send guest session — backend uses it as fallback if JWT fails
+  const guestSession = sessionStorage.getItem("guest_session");
+  if (guestSession) {
+    headers["X-Guest-Session"] = guestSession;
   }
 
   return headers;
@@ -35,6 +36,14 @@ export async function extractNameboard(files: File[]): Promise<ExtractionRespons
     throw new Error(err.detail || "Extraction failed");
   }
 
+  return response.json();
+}
+
+export async function listExtractions(): Promise<ExtractionResponse[]> {
+  const headers = await getHeaders();
+  const response = await fetch(`${API_URL}/api/nameboard`, { headers });
+
+  if (!response.ok) throw new Error("Failed to load extractions");
   return response.json();
 }
 

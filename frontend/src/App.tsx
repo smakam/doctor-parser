@@ -3,6 +3,7 @@ import LoginPage from "@/pages/LoginPage";
 import UploadPage from "@/pages/UploadPage";
 import ReviewPage from "@/pages/ReviewPage";
 import QuoteFormPage from "@/pages/QuoteFormPage";
+import HistoryPage from "@/pages/HistoryPage";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
@@ -53,6 +54,7 @@ function App() {
           path="/quote/:id"
           element={<QuoteFormPage />}
         />
+        <Route path="/history" element={<HistoryPage />} />
         <Route path="/" element={<Navigate to="/upload" replace />} />
       </Routes>
     </BrowserRouter>

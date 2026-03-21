@@ -115,6 +115,30 @@ def build_response(
     )
 
 
+async def list_by_user(
+    db: AsyncSession,
+    user_id: str,
+    limit: int = 50,
+) -> list[NameboardExtraction]:
+    result = await db.execute(
+        select(NameboardExtraction)
+        .where(
+            (NameboardExtraction.session_id == user_id) |
+            (NameboardExtraction.uploaded_by_customer_id == _try_uuid(user_id))
+        )
+        .order_by(NameboardExtraction.created_at.desc())
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+def _try_uuid(value: str):
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        return None
+
+
 async def get_by_id(db: AsyncSession, extraction_id: str) -> Optional[NameboardExtraction]:
     result = await db.execute(
         select(NameboardExtraction).where(NameboardExtraction.id == uuid.UUID(extraction_id))

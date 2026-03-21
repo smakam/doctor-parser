@@ -61,6 +61,18 @@ async def extract(
     return result_service.build_response(record, user_id, settings.pii_encryption_key)
 
 
+@router.get("/nameboard", response_model=list[ExtractionResponse])
+async def list_extractions(
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[UserContext] = Depends(get_current_user_optional),
+):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    settings = get_settings()
+    records = await result_service.list_by_user(db, current_user.id)
+    return [result_service.build_response(r, current_user.id, settings.pii_encryption_key) for r in records]
+
+
 @router.get("/nameboard/{extraction_id}", response_model=ExtractionResponse)
 async def get_extraction(
     extraction_id: str,
