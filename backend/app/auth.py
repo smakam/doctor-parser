@@ -1,3 +1,4 @@
+import logging
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -7,6 +8,8 @@ from fastapi import Header
 from jose import jwt, JWTError
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 # Simple in-memory JWKS cache — refreshed every hour
 _jwks_cache: dict = {"keys": [], "fetched_at": 0}
@@ -65,8 +68,8 @@ async def get_current_user_optional(
         try:
             payload = await _verify_supabase_jwt(token)
             return UserContext(id=payload["sub"], role=payload.get("role", "authenticated"))
-        except (JWTError, Exception):
-            pass
+        except (JWTError, Exception) as e:
+            logger.warning("JWT verification failed: %s", e)
 
     if x_guest_session:
         return UserContext(id=x_guest_session, role="guest", is_guest=True)
