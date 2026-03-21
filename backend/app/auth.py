@@ -45,7 +45,9 @@ async def _verify_supabase_jwt(token: str) -> dict:
     if not key:
         raise JWTError("No public key available in Supabase JWKS")
 
-    return jwt.decode(token, key, algorithms=["RS256"], options={"verify_aud": False})
+    from jose.backends import RSAKey
+    rsa_key = RSAKey(key, algorithm="RS256")
+    return jwt.decode(token, rsa_key, algorithms=["RS256"], options={"verify_aud": False})
 
 
 @dataclass
