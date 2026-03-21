@@ -1,8 +1,6 @@
 """
-NameboardGeocodingService — derives lat/long, city, and state using Mappls (MapmyIndia).
+NameboardGeocodingService — derives lat/long, city, and state using Google Maps Geocoding API.
 Uses a tiered strategy: full address → pin code centroid → address only → not geocoded.
-
-Auth: static API key passed as ?access_token= (Mappls new auth since Aug 2025).
 """
 from dataclasses import dataclass
 from typing import Optional
@@ -11,7 +9,7 @@ import httpx
 
 from app.config import get_settings
 
-MAPPLS_GEOCODE_URL = "https://atlas.mappls.com/api/places/geocode"
+GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 
 
 @dataclass
@@ -36,94 +34,67 @@ async def geocode(address: Optional[str], pin_code: Optional[str]) -> GeocodingR
         return _not_geocoded
 
     settings = get_settings()
-    if not settings.mappls_api_key:
-        return _not_geocoded
-
-    api_key = settings.mappls_api_key
+    api_key = settings.google_vision_api_key  # same GCP key works for Geocoding API
 
     if address and pin_code:
-        result = await _geocode_full_address(api_key, address, pin_code)
+        result = await _call_geocode_api(api_key, f"{address} {pin_code}", "FULL_ADDRESS", 0.95)
         if result:
             return result
 
     if pin_code:
-        result = await _geocode_pin_code(api_key, pin_code)
+        result = await _call_geocode_api(api_key, f"{pin_code} India", "PIN_CODE_CENTROID", 0.60)
         if result:
             return result
 
     if address:
-        result = await _geocode_address_only(api_key, address)
+        result = await _call_geocode_api(api_key, address, "ADDRESS_ONLY", 0.50)
         if result:
             return result
 
     return _not_geocoded
 
 
-async def _geocode_full_address(api_key: str, address: str, pin_code: str) -> Optional[GeocodingResult]:
-    result = await _call_geocode_api(api_key, f"{address} {pin_code}")
-    if not result:
-        return None
-
-    lat, lng, city, state, returned_pin = result
-    if returned_pin and returned_pin != pin_code:
-        return None
-
-    return GeocodingResult(
-        latitude=lat, longitude=lng,
-        city=city, state=state,
-        geocoding_status="FULL_ADDRESS",
-        geocoding_confidence=0.95,
-    )
-
-
-async def _geocode_pin_code(api_key: str, pin_code: str) -> Optional[GeocodingResult]:
-    result = await _call_geocode_api(api_key, pin_code)
-    if not result:
-        return None
-    lat, lng, city, state, _ = result
-    return GeocodingResult(
-        latitude=lat, longitude=lng,
-        city=city, state=state,
-        geocoding_status="PIN_CODE_CENTROID",
-        geocoding_confidence=0.60,
-    )
-
-
-async def _geocode_address_only(api_key: str, address: str) -> Optional[GeocodingResult]:
-    result = await _call_geocode_api(api_key, address)
-    if not result:
-        return None
-    lat, lng, city, state, _ = result
-    return GeocodingResult(
-        latitude=lat, longitude=lng,
-        city=city, state=state,
-        geocoding_status="ADDRESS_ONLY",
-        geocoding_confidence=0.50,
-    )
-
-
 async def _call_geocode_api(
-    api_key: str, query: str
-) -> Optional[tuple[float, float, Optional[str], Optional[str], Optional[str]]]:
+    api_key: str,
+    query: str,
+    status: str,
+    confidence: float,
+) -> Optional[GeocodingResult]:
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.get(
-            MAPPLS_GEOCODE_URL,
-            params={"address": query, "region": "IND", "access_token": api_key},
+            GOOGLE_GEOCODE_URL,
+            params={"address": query, "region": "IN", "key": api_key},
         )
 
     if response.status_code != 200:
         return None
 
     data = response.json()
-    candidates = data.get("copResults", [])
-    if not candidates:
+    results = data.get("results", [])
+    if not results or data.get("status") not in ("OK", "ZERO_RESULTS"):
+        return None
+    if not results:
         return None
 
-    top = candidates[0]
-    lat = float(top.get("latitude", 0) or 0)
-    lng = float(top.get("longitude", 0) or 0)
-    city = top.get("city") or top.get("district")
-    state = top.get("state")
-    pin = top.get("pincode")
+    top = results[0]
+    location = top.get("geometry", {}).get("location", {})
+    lat = location.get("lat")
+    lng = location.get("lng")
+    if not lat or not lng:
+        return None
 
-    return lat, lng, city, state, pin
+    city = None
+    state = None
+    for component in top.get("address_components", []):
+        types = component.get("types", [])
+        if "locality" in types:
+            city = component["long_name"]
+        elif "administrative_area_level_1" in types:
+            state = component["long_name"]
+
+    return GeocodingResult(
+        latitude=lat, longitude=lng,
+        city=city, state=state,
+        geocoding_status=status,
+        geocoding_confidence=confidence,
+    )

@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     imagekit_private_key: str
     imagekit_url_endpoint: str
 
-    mappls_api_key: str = ""  # static key from auth.mappls.com/console (optional)
+    mappls_api_key: str = ""  # kept for backwards compat, no longer used
 
     pii_encryption_key: str  # Fernet key — generate with: Fernet.generate_key().decode()
 
