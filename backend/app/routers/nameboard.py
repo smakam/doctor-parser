@@ -66,7 +66,7 @@ async def list_extractions(
     db: AsyncSession = Depends(get_db),
     current_user: Optional[UserContext] = Depends(get_current_user_optional),
 ):
-    if not current_user:
+    if not current_user or current_user.is_guest:
         raise HTTPException(status_code=401, detail="Authentication required.")
     settings = get_settings()
     records = await result_service.list_by_user(db, current_user.id)

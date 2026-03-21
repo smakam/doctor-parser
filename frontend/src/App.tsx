@@ -20,6 +20,11 @@ function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      // Clear guest session when a real user logs in so their records are
+      // stored under their Supabase ID, not the shared browser guest UUID
+      if (session) {
+        sessionStorage.removeItem("guest_session");
+      }
     });
 
     // Ensure guest session ID exists for unauthenticated flows
