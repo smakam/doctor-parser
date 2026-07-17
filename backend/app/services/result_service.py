@@ -97,7 +97,7 @@ def build_response(
 
     pii = None
     uploader_id = str(record.uploaded_by_customer_id) if record.uploaded_by_customer_id else None
-    if requesting_user_id and (uploader_id == requesting_user_id or record.session_id != requesting_user_id):
+    if requesting_user_id and (uploader_id == requesting_user_id or record.session_id == requesting_user_id):
         pii = _decrypt_pii(record.pii_data, pii_encryption_key)
 
     return ExtractionResponse(
