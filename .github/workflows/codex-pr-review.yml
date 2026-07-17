@@ -33,27 +33,38 @@ jobs:
           prompt-file: .github/codex/prompts/pr-review.md
           sandbox: read-only
           safety-strategy: drop-sudo
-          codex-args: '["--ephemeral"]'
+          codex-args: '["--ephemeral", "--output-schema", ".github/codex/schemas/pr-review.schema.json"]'
 
   publish:
     needs: review
     if: needs.review.outputs.final_message != ''
     runs-on: ubuntu-latest
     permissions:
-      issues: write
+      contents: read
       pull-requests: write
 
     steps:
-      - name: Publish Codex action review summary
+      # Load publisher code from the trusted base commit, never from PR code in
+      # a job that holds pull-request write permission.
+      - name: Check out trusted review publisher
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Publish native Codex action review
         uses: actions/github-script@v7
         env:
-          CODEX_FINAL_MESSAGE: ${{ needs.review.outputs.final_message }}
+          CODEX_REVIEW_JSON: ${{ needs.review.outputs.final_message }}
         with:
           github-token: ${{ github.token }}
           script: |
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              body: `## Codex Action review\n\n${process.env.CODEX_FINAL_MESSAGE}`,
+            const { publishReview } = require(
+              './.github/codex/scripts/publish-inline-review.cjs'
+            );
+            await publishReview({
+              github,
+              context,
+              core,
+              reviewJson: process.env.CODEX_REVIEW_JSON,
             });
