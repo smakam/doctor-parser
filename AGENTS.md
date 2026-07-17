@@ -38,6 +38,15 @@
 - Propose the change and rationale, wait for explicit approval
 - Record the decision in `ai/DECISIONS.md` after approval
 
+### Pull Request Review Contract
+
+- For every pull-request review, read and follow
+  `.github/review/code-review.md`.
+- That file is the shared, provider-neutral source of truth for review
+  priorities, finding thresholds, severity, validation, and reporting.
+- Keep execution-specific instructions in the invoking integration rather than
+  duplicating the shared review policy.
+
 ### Security Guardrails
 
 - Never hardcode secrets, API keys, or credentials in source code

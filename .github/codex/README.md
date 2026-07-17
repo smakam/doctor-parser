@@ -1,6 +1,17 @@
 # Codex review experiment
 
-This repository supports two deliberately separate Codex review paths.
+This repository supports two deliberately separate Codex review paths. The
+repository-owned GitHub Action is the primary scalable direction because it can
+be coordinated with static analysis, security, testing, evidence aggregation,
+and merge gates. Hosted review remains useful as a low-setup comparison and an
+optional additional review pass.
+
+## Shared review policy
+
+`AGENTS.md` is the entrypoint for every agent. Its pull-request review contract
+routes both integrations to `.github/review/code-review.md`, which contains the
+provider-neutral review policy. Integration prompts should contain execution
+details only and must not duplicate that policy.
 
 ## Hosted Codex review
 
@@ -9,11 +20,11 @@ This repository supports two deliberately separate Codex review paths.
 3. On an experiment pull request, comment:
 
    ```text
-   @codex review. Also read .github/review/code-review.md.
+   @codex review
    ```
 
-Codex Cloud owns execution and posts a standard GitHub review. No repository
-workflow runs for this path.
+Codex Cloud owns execution, reads `AGENTS.md`, follows its review-policy route,
+and posts a standard GitHub review. No repository workflow runs for this path.
 
 ## Repository-owned Codex Action review
 
@@ -25,6 +36,14 @@ workflow runs for this path.
 This first version intentionally posts one summary comment. Converting structured
 findings into inline comments is deferred so the experiment can make that extra
 integration overhead visible rather than hiding it.
+
+## Multi-repository direction
+
+After the experiment, move the stable orchestration into a versioned reusable
+workflow owned by a central CI repository. Each application repository should
+retain only its `AGENTS.md`, repository-specific review policy or overrides, and
+a thin caller workflow. Model-specific actions then become replaceable adapters
+behind the reusable workflow rather than being copied across every project.
 
 ## Safe experiment sequence
 
