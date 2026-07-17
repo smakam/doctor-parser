@@ -10,12 +10,14 @@ establish behavior, reachability, or test coverage.
 Run bounded, read-only commands when they can validate a finding. Do not install
 dependencies, access network services, expose secrets, or make source changes.
 
-Return concise Markdown with these sections:
+Return only JSON that matches the supplied output schema. Order `findings` by
+severity. For each finding, anchor `path`, `line`, and `side` to the smallest
+relevant line in the pull-request diff. Put the concrete failure or abuse
+scenario in `problem`, direct support in `evidence`, and the smallest reasonable
+fix in `correction`.
 
-1. `Summary`
-2. `Findings`, ordered by severity
-3. `Validation`
-4. `Coverage and uncertainty`
-
-If no finding meets the shared review policy's evidence threshold, return
-`No actionable findings.`
+If a problem is actionable but cannot be anchored to a changed line, use the
+closest relevant changed line; the publisher will validate the anchor and fall
+back to the review summary when necessary. If no finding meets the shared review
+policy's evidence threshold, return an empty `findings` array and explain the
+reviewed surfaces in `coverage`.

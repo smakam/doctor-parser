@@ -30,12 +30,24 @@ and posts a standard GitHub review. No repository workflow runs for this path.
 
 1. Add an `OPENAI_API_KEY` repository secret.
 2. Add the `codex-action-review` label to the experiment pull request.
-3. The `Codex action PR review` workflow runs in GitHub Actions and posts its
-   Markdown result as a pull-request conversation comment.
+3. The `Codex action PR review` workflow runs in GitHub Actions and posts one
+   native GitHub review containing inline, resolvable findings.
 
-This first version intentionally posts one summary comment. Converting structured
-findings into inline comments is deferred so the experiment can make that extra
-integration overhead visible rather than hiding it.
+Codex emits structured JSON governed by
+`.github/codex/schemas/pr-review.schema.json`. The publisher validates each
+finding against the current diff before attaching it to a line. Findings that
+cannot be attached safely remain visible in the review summary.
+
+Each inline comment contains a hidden fingerprint derived from the head commit,
+path, line, side, and normalized title. A retry on the same commit therefore
+does not duplicate the review. A new commit receives new fingerprints so
+remaining findings can be reported at their current locations. The automation
+does not resolve threads; resolution remains a human decision.
+
+The write-enabled publisher is always loaded from the pull request's trusted
+base commit, not from the proposed changes. Consequently, the pull request that
+first introduces this publisher should be merged without applying the
+`codex-action-review` label; exercise the inline flow on the next pull request.
 
 ## Multi-repository direction
 

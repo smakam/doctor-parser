@@ -90,3 +90,33 @@ Keep entries dated and honest — document the reasoning, not just the outcome.
 **Related Files**: `backend/app/services/geocoding_service.py`
 
 ---
+
+## 2026-07-17 — Native Inline Publication for Action-Based AI Reviews
+
+**Context**: The controlled Codex review experiment found that the hosted
+review and repository-owned GitHub Action identified the same defects, but the
+Action published one conversation comment instead of resolvable inline review
+threads.
+
+**Decision**: Require the Action reviewer to emit structured JSON and publish
+it as a native GitHub pull-request review. Attach findings to validated diff
+lines and place non-attachable findings in the review summary. Use a hidden
+fingerprint scoped to the PR head commit and finding location to suppress
+duplicate comments when the same commit is retried.
+
+**Reasoning**: Native review threads match the human review workflow while
+preserving the Action's orchestration, model selection, and cost controls.
+Commit-scoped fingerprints provide idempotency without hiding findings that
+remain after a new commit.
+
+**Impact**:
+- The reviewer output is a versioned JSON contract rather than Markdown.
+- The publishing job creates one GitHub review with inline comments.
+- Humans resolve threads; the automation does not auto-resolve findings.
+- A future central reusable workflow can own the publisher implementation.
+
+**Related Files**: `.github/codex/schemas/pr-review.schema.json`,
+`.github/codex/scripts/publish-inline-review.cjs`,
+`.github/workflows/codex-pr-review.yml`
+
+---
