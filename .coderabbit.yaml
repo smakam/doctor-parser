@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+reviews:
+  profile: assertive
+  path_instructions:
+    - path: "backend/app/routers/**"
+      instructions: |
+        Focus on authentication and authorization. Treat ownership and session-id
+        checks as security-sensitive. Flag any condition that allows a non-owner
+        to read, accept, reject, or correct another user's extraction record.
+    - path: "backend/app/services/**"
+      instructions: |
+        Verify that request fields map to the matching persisted fields. Flag any
+        correction mapping that writes one logical field into another field.
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - ".github/review/code-review.md"
