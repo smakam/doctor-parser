@@ -63,6 +63,8 @@ Always-on deterministic jobs:
 - `Backend unit and API tests`: pytest against `backend/tests`.
 - `Deterministic CI evidence summary`: upserts a PR comment summarizing Ruff,
   Bandit, and pytest results from uploaded artifacts.
+- `CI readiness gate`: evaluates the collected evidence and produces the final
+  GitHub pass/fail readiness signal.
 
 Static and security jobs are evidence-producing, non-blocking checks. They
 always complete successfully at the GitHub job level, but record Ruff/Bandit
@@ -72,6 +74,12 @@ Backend pytest remains a blocking correctness check.
 The deterministic summary comment is always published and marked with
 `<!-- ci-evidence-summary -->`. It makes evidence-only Ruff/Bandit findings
 visible on the PR without requiring reviewers to open workflow artifacts.
+
+The readiness gate is the final machine-readable status for manual-review
+readiness. It fails when blocking CI evidence exists, including nonzero Ruff,
+Bandit, backend pytest, or requested AI-generated targeted-test status. A green
+summary/report job means the report was published; only the readiness gate says
+whether CI considers the PR ready for manual review.
 
 Label-gated AI jobs:
 

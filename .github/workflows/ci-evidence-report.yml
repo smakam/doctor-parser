@@ -545,3 +545,135 @@ jobs:
                 body,
               });
             }
+
+  ci-readiness-gate:
+    name: CI readiness gate
+    runs-on: ubuntu-latest
+    needs:
+      - static-analysis
+      - security-analysis
+      - backend-tests
+      - ai-targeted-tests
+      - deterministic-summary
+      - ai-final-report
+    if: always()
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download CI evidence artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ci-evidence
+          merge-multiple: false
+
+      - name: Evaluate merge readiness
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const root = 'ci-evidence';
+            const labels = context.payload.pull_request.labels.map(
+              (label) => label.name
+            );
+            const aiRequested = labels.includes('ci-ai-report');
+
+            function readText(relativePath) {
+              try {
+                return fs.readFileSync(path.join(root, relativePath), 'utf8');
+              } catch {
+                return '';
+              }
+            }
+
+            function parseStatusEnv(relativePath) {
+              const out = {};
+              for (const line of readText(relativePath).split(/\r?\n/)) {
+                const index = line.indexOf('=');
+                if (index > 0) {
+                  out[line.slice(0, index)] = line.slice(index + 1);
+                }
+              }
+              return out;
+            }
+
+            function nonzero(value) {
+              return value !== undefined && value !== '' && String(value) !== '0';
+            }
+
+            const staticStatus = parseStatusEnv(
+              'static-analysis-results/status.env'
+            );
+            const securityStatus = parseStatusEnv(
+              'security-analysis-results/status.env'
+            );
+            const testStatus = parseStatusEnv('backend-test-results/status.env');
+            const aiTestStatus = parseStatusEnv(
+              'ai-targeted-test-results/ci-results/ai-targeted-tests/status.env'
+            );
+
+            const blockers = [];
+            const observations = [];
+
+            if (nonzero(staticStatus.ruff_check_status)) {
+              blockers.push(`Ruff check status ${staticStatus.ruff_check_status}`);
+            }
+            if (nonzero(staticStatus.ruff_format_status)) {
+              blockers.push(`Ruff format status ${staticStatus.ruff_format_status}`);
+            }
+            if (nonzero(securityStatus.bandit_status)) {
+              blockers.push(`Bandit status ${securityStatus.bandit_status}`);
+            }
+            if (nonzero(testStatus.pytest_status)) {
+              blockers.push(`Backend pytest status ${testStatus.pytest_status}`);
+            }
+
+            if (aiRequested) {
+              if (aiTestStatus.pytest_status === undefined) {
+                blockers.push('AI-generated targeted test status missing');
+              } else if (nonzero(aiTestStatus.pytest_status)) {
+                blockers.push(
+                  `AI-generated targeted pytest status ${aiTestStatus.pytest_status}`
+                );
+              }
+            } else {
+              observations.push('AI checks were not requested because `ci-ai-report` is absent.');
+            }
+
+            const readiness = blockers.length
+              ? 'Blocked by CI evidence'
+              : 'Ready for manual review';
+
+            await core.summary
+              .addHeading('CI readiness gate')
+              .addTable([
+                [
+                  { data: 'Readiness', header: true },
+                  { data: readiness, header: true },
+                ],
+                ['Ruff check status', staticStatus.ruff_check_status ?? 'missing'],
+                ['Ruff format status', staticStatus.ruff_format_status ?? 'missing'],
+                ['Bandit status', securityStatus.bandit_status ?? 'missing'],
+                ['Backend pytest status', testStatus.pytest_status ?? 'missing'],
+                [
+                  'AI targeted pytest status',
+                  aiRequested ? aiTestStatus.pytest_status ?? 'missing' : 'not requested',
+                ],
+              ])
+              .addRaw(
+                blockers.length
+                  ? `\n\nBlockers:\n${blockers.map((item) => `- ${item}`).join('\n')}`
+                  : '\n\nNo blocking CI evidence found.'
+              )
+              .addRaw(
+                observations.length
+                  ? `\n\nObservations:\n${observations.map((item) => `- ${item}`).join('\n')}`
+                  : ''
+              )
+              .write();
+
+            if (blockers.length) {
+              core.setFailed(`${readiness}: ${blockers.join('; ')}`);
+            }
