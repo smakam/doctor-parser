@@ -62,10 +62,9 @@ Always-on deterministic jobs:
 - `Security analysis`: Bandit scan for changed backend app Python files.
 - `Backend unit and API tests`: pytest against `backend/tests`.
 
-Static and security jobs are initially configured as evidence-producing,
-non-blocking checks because this experiment is being introduced into an existing
-codebase that may have baseline lint/security findings. Their pass/fail status
-and changed-file scope are still recorded in artifacts for the final AI report.
+Static and security jobs are evidence-producing, non-blocking checks. They
+always complete successfully at the GitHub job level, but record Ruff/Bandit
+tool exit codes and changed-file scope in artifacts for the final AI report.
 Backend pytest remains a blocking correctness check.
 
 Label-gated AI jobs:

@@ -12,7 +12,6 @@ jobs:
   static-analysis:
     name: Static analysis
     runs-on: ubuntu-latest
-    continue-on-error: true
     permissions:
       contents: read
 
@@ -77,8 +76,9 @@ jobs:
           } > ci-results/static/status.env
 
           if [ "$check_status" -ne 0 ] || [ "$format_status" -ne 0 ]; then
-            exit 1
+            echo "Ruff found evidence. See uploaded static-analysis-results."
           fi
+          exit 0
 
       - name: Upload static-analysis evidence
         if: always()
@@ -91,7 +91,6 @@ jobs:
   security-analysis:
     name: Security analysis
     runs-on: ubuntu-latest
-    continue-on-error: true
     permissions:
       contents: read
 
@@ -146,7 +145,10 @@ jobs:
             echo "bandit_scope=changed_backend_app_python_files"
             echo "bandit_status=$bandit_status"
           } > ci-results/security/status.env
-          exit "$bandit_status"
+          if [ "$bandit_status" -ne 0 ]; then
+            echo "Bandit found evidence. See uploaded security-analysis-results."
+          fi
+          exit 0
 
       - name: Upload security-analysis evidence
         if: always()

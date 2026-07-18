@@ -134,8 +134,9 @@ for a follow-up because it requires live app startup in CI.
 report`. Run Ruff, Bandit, and pytest as deterministic evidence producers. Scope
 Ruff and Bandit to changed backend Python files initially so baseline findings in
 the existing codebase do not drown out PR-specific evidence. Keep static and
-security jobs non-blocking initially; preserve their status and changed-file
-scope in artifacts for the final AI report. Keep backend pytest blocking. Gate
+security jobs non-blocking at the GitHub job level; preserve their tool exit
+codes and changed-file scope in artifacts for the final AI report. Keep backend
+pytest blocking. Gate
 AI-generated targeted tests and the final AI report behind the `ci-ai-report`
 label and same-repository PR check. Allow the test-generation step to write only
 `ci-generated-tests/backend/test_pr_targeted.py`; fail the job if any other file
