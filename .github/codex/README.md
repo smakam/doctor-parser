@@ -49,6 +49,45 @@ base commit, not from the proposed changes. Consequently, the pull request that
 first introduces this publisher should be merged without applying the
 `codex-action-review` label; exercise the inline flow on the next pull request.
 
+## CI evidence report
+
+The `CI evidence report` workflow is the repository-owned CI orchestration path
+for the second experiment. It runs deterministic tools first and uses AI only to
+generate targeted tests and summarize evidence for the manual reviewer.
+
+Always-on deterministic jobs:
+
+- `Static analysis`: Ruff check and Ruff format check for `backend/`.
+- `Security analysis`: Bandit scan for `backend/app`.
+- `Backend unit and API tests`: pytest against `backend/tests`.
+
+Static and security jobs are initially configured as evidence-producing,
+non-blocking checks because this experiment is being introduced into an existing
+codebase that may have baseline lint/security findings. Their pass/fail status
+is still recorded in artifacts for the final AI report. Backend pytest remains a
+blocking correctness check.
+
+Label-gated AI jobs:
+
+- Add the `ci-ai-report` label to run AI-generated targeted pytest tests and the
+  final AI reviewer report.
+- The AI jobs run only on same-repository pull requests so repository secrets
+  are not exposed to forked PR code.
+
+AI-generated tests are written only to `ci-generated-tests/backend/` inside the
+workflow workspace. They are executed by pytest but are not committed back to
+the repository. The workflow fails if the generation step modifies any file
+outside `ci-generated-tests/backend/test_pr_targeted.py`.
+
+The final report reads uploaded CI artifacts and upserts one PR comment marked
+with `<!-- ai-ci-final-report -->`. It summarizes static analysis, security
+analysis, backend unit/API tests, generated targeted tests, cross-signal
+interpretation, and manual-review focus.
+
+Dynamic analysis is intentionally not included in this workflow yet. A follow-up
+experiment should add live app startup and an OWASP ZAP baseline scan, then feed
+the ZAP report into the same final-report pattern.
+
 ## Multi-repository direction
 
 After the experiment, move the stable orchestration into a versioned reusable
