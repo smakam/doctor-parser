@@ -2,17 +2,20 @@
 Tests for the nameboard extraction pipeline.
 External services (ImageKit, Google Vision, OpenAI, Mappls) are mocked.
 """
+
 import uuid
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock
 from httpx import AsyncClient, ASGITransport
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def fernet_key():
     from cryptography.fernet import Fernet
+
     return Fernet.generate_key().decode()
 
 
@@ -36,12 +39,14 @@ def mock_settings(monkeypatch, fernet_key):
     for k, v in env.items():
         monkeypatch.setenv(k, v)
     from app.config import get_settings
+
     get_settings.cache_clear()
 
 
 @pytest.fixture
 def sample_extraction_result():
     from app.services.extraction_service import ExtractionResult, FieldResult
+
     return ExtractionResult(
         doctor_name=FieldResult(value="Dr. Priya Sharma", confidence=0.98),
         clinic_name=FieldResult(value="Sharma Clinic", confidence=0.95),
@@ -59,6 +64,7 @@ def sample_extraction_result():
 @pytest.fixture
 def sample_ocr_result():
     from app.services.ocr_service import ImageOcrResult
+
     return ImageOcrResult(
         imagekit_url="https://ik.imagekit.io/test/img.jpg",
         raw_text="Dr. Priya Sharma\nMBBS, MD\n123 MG Road Mumbai\n9876543210",
@@ -71,10 +77,14 @@ def sample_ocr_result():
 
 # ── Health & auth ──────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_health(mock_settings):
     from app.main import app
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         r = await client.get("/health")
     assert r.status_code == 200
     assert r.json() == {"status": "ok"}
@@ -83,7 +93,10 @@ async def test_health(mock_settings):
 @pytest.mark.asyncio
 async def test_debug_auth_no_headers(mock_settings):
     from app.main import app
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         r = await client.get("/debug/auth")
     assert r.status_code == 200
     data = r.json()
@@ -94,8 +107,11 @@ async def test_debug_auth_no_headers(mock_settings):
 @pytest.mark.asyncio
 async def test_debug_auth_guest_session(mock_settings):
     from app.main import app
+
     guest_id = str(uuid.uuid4())
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         r = await client.get("/debug/auth", headers={"X-Guest-Session": guest_id})
     assert r.status_code == 200
     data = r.json()
@@ -106,16 +122,20 @@ async def test_debug_auth_guest_session(mock_settings):
 
 # ── Access control ─────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_get_extraction_requires_auth(mock_settings):
     """GET /api/nameboard/{id} returns 401 when no auth provided."""
     from app.main import app
     from app.database import get_db
+
     mock_db = AsyncMock()
     app.dependency_overrides[get_db] = lambda: mock_db
     fake_id = str(uuid.uuid4())
     try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             r = await client.get(f"/api/nameboard/{fake_id}")
         assert r.status_code == 401
     finally:
@@ -126,11 +146,14 @@ async def test_get_extraction_requires_auth(mock_settings):
 async def test_accept_requires_auth(mock_settings):
     from app.main import app
     from app.database import get_db
+
     mock_db = AsyncMock()
     app.dependency_overrides[get_db] = lambda: mock_db
     fake_id = str(uuid.uuid4())
     try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             r = await client.post(f"/api/nameboard/{fake_id}/accept")
         assert r.status_code == 401
     finally:
@@ -141,8 +164,11 @@ async def test_accept_requires_auth(mock_settings):
 async def test_list_history_requires_real_auth(mock_settings):
     """GET /api/nameboard returns 401 for guests and unauthenticated requests."""
     from app.main import app
+
     guest_id = str(uuid.uuid4())
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         # No auth
         r1 = await client.get("/api/nameboard")
         assert r1.status_code == 401
@@ -154,9 +180,13 @@ async def test_list_history_requires_real_auth(mock_settings):
 
 # ── Service unit tests ─────────────────────────────────────────────────────────
 
+
 def test_compute_overall_confidence(sample_extraction_result, sample_ocr_result):
     from app.services.result_service import _compute_overall_confidence
-    confidence = _compute_overall_confidence(sample_extraction_result, [sample_ocr_result])
+
+    confidence = _compute_overall_confidence(
+        sample_extraction_result, [sample_ocr_result]
+    )
     assert 0.0 < confidence <= 1.0
 
 
@@ -166,13 +196,19 @@ def test_poor_image_penalises_confidence(sample_extraction_result):
 
     good = ImageOcrResult(
         imagekit_url="https://example.com/good.jpg",
-        raw_text="Dr. Test", text_density=10.0,
-        average_word_confidence=0.95, detected_languages=["en"], quality="GOOD",
+        raw_text="Dr. Test",
+        text_density=10.0,
+        average_word_confidence=0.95,
+        detected_languages=["en"],
+        quality="GOOD",
     )
     poor = ImageOcrResult(
         imagekit_url="https://example.com/poor.jpg",
-        raw_text="blurry", text_density=2.0,
-        average_word_confidence=0.30, detected_languages=["en"], quality="POOR",
+        raw_text="blurry",
+        text_density=2.0,
+        average_word_confidence=0.30,
+        detected_languages=["en"],
+        quality="POOR",
     )
     good_conf = _compute_overall_confidence(sample_extraction_result, [good])
     penalised = _compute_overall_confidence(sample_extraction_result, [good, poor])
@@ -181,6 +217,7 @@ def test_poor_image_penalises_confidence(sample_extraction_result):
 
 def test_pii_encrypt_decrypt(fernet_key):
     from app.services.result_service import _encrypt_pii, _decrypt_pii
+
     pii = {"phones": ["9876543210"], "emails": ["doctor@example.com"]}
     encrypted = _encrypt_pii(pii, fernet_key)
     decrypted = _decrypt_pii({"encrypted": encrypted}, fernet_key)
@@ -191,6 +228,7 @@ def test_pii_encrypt_decrypt(fernet_key):
 
 def test_pii_decrypt_bad_data(fernet_key):
     from app.services.result_service import _decrypt_pii
+
     assert _decrypt_pii(None, fernet_key) is None
     assert _decrypt_pii({}, fernet_key) is None
     assert _decrypt_pii({"encrypted": "not-valid-fernet"}, fernet_key) is None
@@ -202,10 +240,16 @@ def test_build_warnings_missing_name():
     from app.services.result_service import _build_warnings
 
     extraction = ExtractionResult()  # no fields
-    ocr = [ImageOcrResult(
-        imagekit_url="u", raw_text="text", text_density=1.0,
-        average_word_confidence=0.9, detected_languages=["en"], quality="GOOD",
-    )]
+    ocr = [
+        ImageOcrResult(
+            imagekit_url="u",
+            raw_text="text",
+            text_density=1.0,
+            average_word_confidence=0.9,
+            detected_languages=["en"],
+            quality="GOOD",
+        )
+    ]
     warnings = _build_warnings(ocr, extraction)
     assert any("Doctor name" in w for w in warnings)
     assert any("Address" in w for w in warnings)
@@ -220,10 +264,16 @@ def test_build_warnings_poor_image():
         doctor_name=FieldResult(value="Dr. X", confidence=0.9),
         address=FieldResult(value="123 St", confidence=0.9),
     )
-    ocr = [ImageOcrResult(
-        imagekit_url="u", raw_text="blurry", text_density=1.0,
-        average_word_confidence=0.3, detected_languages=["en"], quality="POOR",
-    )]
+    ocr = [
+        ImageOcrResult(
+            imagekit_url="u",
+            raw_text="blurry",
+            text_density=1.0,
+            average_word_confidence=0.3,
+            detected_languages=["en"],
+            quality="POOR",
+        )
+    ]
     warnings = _build_warnings(ocr, extraction)
     assert any("low OCR confidence" in w for w in warnings)
 
@@ -231,10 +281,12 @@ def test_build_warnings_poor_image():
 def test_overall_confidence_zero_when_no_fields():
     from app.services.extraction_service import ExtractionResult
     from app.services.result_service import _compute_overall_confidence
+
     assert _compute_overall_confidence(ExtractionResult(), []) == 0.0
 
 
 # ── Result assembly ────────────────────────────────────────────────────────────
+
 
 def test_build_extracted_data(sample_extraction_result):
     from app.services.geocoding_service import GeocodingResult
@@ -255,8 +307,8 @@ def test_build_extracted_data(sample_extraction_result):
 
 
 def test_build_response_hides_pii_for_wrong_user(fernet_key, monkeypatch):
-    from cryptography.fernet import Fernet
-    import json, uuid as _uuid, datetime
+    import uuid as _uuid
+    import datetime
     from app.services.result_service import _encrypt_pii, build_response
     from app.models.nameboard import NameboardExtraction
     from app.schemas.nameboard import ExtractedData

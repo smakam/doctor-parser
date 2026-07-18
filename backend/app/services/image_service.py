@@ -1,6 +1,7 @@
 """
 NameboardImageService — uploads images to ImageKit and returns URLs + file IDs.
 """
+
 import base64
 import uuid
 from dataclasses import dataclass
@@ -22,7 +23,9 @@ class ImageUploadResult:
     original_filename: str
 
 
-async def upload_images(files: list[UploadFile], session_id: str) -> list[ImageUploadResult]:
+async def upload_images(
+    files: list[UploadFile], session_id: str
+) -> list[ImageUploadResult]:
     if not files:
         raise HTTPException(status_code=400, detail="At least one image is required.")
     if len(files) > 5:
@@ -33,7 +36,9 @@ async def upload_images(files: list[UploadFile], session_id: str) -> list[ImageU
         _validate_file(file)
         content = await file.read()
         _validate_size(content, file.filename)
-        result = await _upload_to_imagekit(content, file.filename or f"image_{index}", session_id, index)
+        result = await _upload_to_imagekit(
+            content, file.filename or f"image_{index}", session_id, index
+        )
         results.append(result)
 
     return results

@@ -12,17 +12,19 @@ if _env_file.exists():
             key, _, value = line.partition("=")
             os.environ.setdefault(key.strip(), value.strip())
 
-from sqlalchemy.ext.asyncio import create_async_engine
-from alembic import context
+from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
+from alembic import context  # noqa: E402
 
-from app.models.nameboard import Base
+from app.models.nameboard import Base  # noqa: E402
 
 config = context.config
 fileConfig(config.config_file_name)
 target_metadata = Base.metadata
 
 # Allow DATABASE_URL to be set via environment variable
-database_url = os.environ.get("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+database_url = os.environ.get("DATABASE_URL") or config.get_main_option(
+    "sqlalchemy.url"
+)
 if database_url and database_url.startswith("postgresql://"):
     database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 

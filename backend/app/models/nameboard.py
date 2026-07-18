@@ -17,17 +17,21 @@ class NameboardExtraction(Base):
     uploaded_by_customer_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     uploaded_by_posp_id = Column(UUID(as_uuid=True), nullable=True)
 
-    imagekit_file_ids = Column(JSONB)          # list of ImageKit file IDs
+    imagekit_file_ids = Column(JSONB)  # list of ImageKit file IDs
     images_processed = Column(Integer)
     overall_confidence = Column(Numeric(4, 3))
 
-    extracted_data = Column(JSONB)             # non-PII fields with confidence scores
-    pii_data = Column(JSONB)                   # encrypted phone/email fields
-    image_quality = Column(JSONB)              # per-image quality assessments
-    extraction_warnings = Column(JSONB)        # list of warning strings
+    extracted_data = Column(JSONB)  # non-PII fields with confidence scores
+    pii_data = Column(JSONB)  # encrypted phone/email fields
+    image_quality = Column(JSONB)  # per-image quality assessments
+    extraction_warnings = Column(JSONB)  # list of warning strings
 
-    geocoding_status = Column(String)          # FULL_ADDRESS / PIN_CODE_CENTROID / ADDRESS_ONLY / NOT_GEOCODED
+    geocoding_status = Column(
+        String
+    )  # FULL_ADDRESS / PIN_CODE_CENTROID / ADDRESS_ONLY / NOT_GEOCODED
 
-    status = Column(String, default="PENDING_REVIEW")  # PENDING_REVIEW / ACCEPTED / REJECTED
+    status = Column(
+        String, default="PENDING_REVIEW"
+    )  # PENDING_REVIEW / ACCEPTED / REJECTED
     created_at = Column(DateTime, default=datetime.utcnow)
     reviewed_at = Column(DateTime, nullable=True)

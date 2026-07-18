@@ -2,6 +2,7 @@
 NameboardOcrService — runs Google Cloud Vision Document Text Detection on image URLs.
 Returns per-image raw text, confidence scores, detected languages, and quality flags.
 """
+
 import asyncio
 from dataclasses import dataclass, field
 
@@ -25,10 +26,10 @@ class WordBlock:
 class ImageOcrResult:
     imagekit_url: str
     raw_text: str
-    text_density: float           # characters per 1000px² (approximation)
+    text_density: float  # characters per 1000px² (approximation)
     average_word_confidence: float
     detected_languages: list[str]
-    quality: str                  # GOOD / POOR
+    quality: str  # GOOD / POOR
     word_blocks: list[WordBlock] = field(default_factory=list)
 
 
@@ -58,13 +59,17 @@ async def extract_text(image_url: str) -> ImageOcrResult:
         )
 
     if response.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"Google Vision API error: {response.text}")
+        raise HTTPException(
+            status_code=502, detail=f"Google Vision API error: {response.text}"
+        )
 
     data = response.json()
     annotation = data.get("responses", [{}])[0]
 
     if "error" in annotation:
-        raise HTTPException(status_code=502, detail=f"Vision API error: {annotation['error']}")
+        raise HTTPException(
+            status_code=502, detail=f"Vision API error: {annotation['error']}"
+        )
 
     return _parse_annotation(image_url, annotation)
 
@@ -95,7 +100,9 @@ def _parse_annotation(image_url: str, annotation: dict) -> ImageOcrResult:
                     word_blocks.append(WordBlock(word_text, confidence, bounding_box))
                     confidence_scores.append(confidence)
 
-    avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0
+    avg_confidence = (
+        sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0
+    )
     text_density = len(raw_text) / max(1, len(word_blocks))  # chars per word as proxy
     quality = "POOR" if avg_confidence < POOR_QUALITY_THRESHOLD else "GOOD"
 

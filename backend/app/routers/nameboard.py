@@ -1,7 +1,7 @@
 """
 NameboardController — all /api/nameboard/* endpoints.
 """
-import asyncio
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
@@ -11,7 +11,14 @@ from app.auth import get_current_user_optional, UserContext
 from app.config import get_settings
 from app.database import get_db
 from app.schemas.nameboard import ExtractionResponse, CorrectRequest
-from app.services import image_service, ocr_service, extraction_service, geocoding_service, result_service, review_service
+from app.services import (
+    image_service,
+    ocr_service,
+    extraction_service,
+    geocoding_service,
+    result_service,
+    review_service,
+)
 
 router = APIRouter()
 
@@ -27,6 +34,7 @@ async def extract(
     Accessible to authenticated users and guest sessions.
     """
     import uuid as _uuid
+
     imagekit_session_id = str(_uuid.uuid4())  # used only for ImageKit folder path
 
     # Step 1 — upload images to ImageKit
@@ -70,7 +78,10 @@ async def list_extractions(
         raise HTTPException(status_code=401, detail="Authentication required.")
     settings = get_settings()
     records = await result_service.list_by_user(db, current_user.id)
-    return [result_service.build_response(r, current_user.id, settings.pii_encryption_key) for r in records]
+    return [
+        result_service.build_response(r, current_user.id, settings.pii_encryption_key)
+        for r in records
+    ]
 
 
 @router.get("/nameboard/{extraction_id}", response_model=ExtractionResponse)
@@ -150,6 +161,8 @@ def _check_access(record, requesting_user_id: Optional[str]) -> None:
     if not requesting_user_id:
         raise HTTPException(status_code=401, detail="Authentication required.")
 
-    uploader = str(record.uploaded_by_customer_id) if record.uploaded_by_customer_id else None
+    uploader = (
+        str(record.uploaded_by_customer_id) if record.uploaded_by_customer_id else None
+    )
     if uploader != requesting_user_id and record.session_id != requesting_user_id:
         raise HTTPException(status_code=403, detail="Access denied.")
