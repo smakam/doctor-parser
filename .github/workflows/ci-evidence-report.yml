@@ -12,7 +12,6 @@ jobs:
   static-analysis:
     name: Static analysis
     runs-on: ubuntu-latest
-    continue-on-error: true
     permissions:
       contents: read
 
@@ -21,6 +20,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
@@ -36,21 +36,49 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ruff
 
+          git diff --name-only \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" \
+            -- 'backend/**/*.py' \
+            > ci-results/static/changed-python-files.txt
+
+          ruff_files=()
+          while IFS= read -r file; do
+            if [ -n "$file" ]; then
+              ruff_files+=("$file")
+            fi
+          done < ci-results/static/changed-python-files.txt
+          if [ "${#ruff_files[@]}" -eq 0 ]; then
+            echo "[]" > ci-results/static/ruff-check.json
+            echo "No changed backend Python files." \
+              > ci-results/static/ruff-format.txt
+            {
+              echo "ruff_scope=changed_backend_python_files"
+              echo "ruff_check_status=0"
+              echo "ruff_format_status=0"
+            } > ci-results/static/status.env
+            exit 0
+          fi
+
           set +e
-          ruff check backend --output-format=json > ci-results/static/ruff-check.json
+          ruff check "${ruff_files[@]}" --output-format=json \
+            > ci-results/static/ruff-check.json
           check_status=$?
-          ruff format --check backend > ci-results/static/ruff-format.txt 2>&1
+          ruff format --check "${ruff_files[@]}" \
+            > ci-results/static/ruff-format.txt 2>&1
           format_status=$?
           set -e
 
           {
+            echo "ruff_scope=changed_backend_python_files"
             echo "ruff_check_status=$check_status"
             echo "ruff_format_status=$format_status"
           } > ci-results/static/status.env
 
           if [ "$check_status" -ne 0 ] || [ "$format_status" -ne 0 ]; then
-            exit 1
+            echo "Ruff found evidence. See uploaded static-analysis-results."
           fi
+          exit 0
 
       - name: Upload static-analysis evidence
         if: always()
@@ -63,7 +91,6 @@ jobs:
   security-analysis:
     name: Security analysis
     runs-on: ubuntu-latest
-    continue-on-error: true
     permissions:
       contents: read
 
@@ -72,6 +99,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
@@ -86,13 +114,41 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install bandit
 
+          git diff --name-only \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" \
+            -- 'backend/app/**/*.py' \
+            > ci-results/security/changed-app-python-files.txt
+
+          bandit_files=()
+          while IFS= read -r file; do
+            if [ -n "$file" ]; then
+              bandit_files+=("$file")
+            fi
+          done < ci-results/security/changed-app-python-files.txt
+          if [ "${#bandit_files[@]}" -eq 0 ]; then
+            printf '{"results":[],"errors":[],"metrics":{}}\n' \
+              > ci-results/security/bandit.json
+            {
+              echo "bandit_scope=changed_backend_app_python_files"
+              echo "bandit_status=0"
+            } > ci-results/security/status.env
+            exit 0
+          fi
+
           set +e
-          bandit -r backend/app -f json -o ci-results/security/bandit.json
+          bandit "${bandit_files[@]}" -f json -o ci-results/security/bandit.json
           bandit_status=$?
           set -e
 
-          echo "bandit_status=$bandit_status" > ci-results/security/status.env
-          exit "$bandit_status"
+          {
+            echo "bandit_scope=changed_backend_app_python_files"
+            echo "bandit_status=$bandit_status"
+          } > ci-results/security/status.env
+          if [ "$bandit_status" -ne 0 ]; then
+            echo "Bandit found evidence. See uploaded security-analysis-results."
+          fi
+          exit 0
 
       - name: Upload security-analysis evidence
         if: always()
@@ -143,6 +199,194 @@ jobs:
           name: backend-test-results
           path: ci-results/tests/
           if-no-files-found: warn
+
+  deterministic-summary:
+    name: Deterministic CI evidence summary
+    runs-on: ubuntu-latest
+    needs:
+      - static-analysis
+      - security-analysis
+      - backend-tests
+    if: always()
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Download CI evidence artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ci-evidence
+          merge-multiple: false
+
+      - name: Publish deterministic evidence summary
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const marker = '<!-- ci-evidence-summary -->';
+            const root = 'ci-evidence';
+
+            function readText(relativePath) {
+              try {
+                return fs.readFileSync(path.join(root, relativePath), 'utf8');
+              } catch {
+                return '';
+              }
+            }
+
+            function readJson(relativePath, fallback) {
+              const text = readText(relativePath);
+              if (!text) return fallback;
+              try {
+                return JSON.parse(text);
+              } catch {
+                return fallback;
+              }
+            }
+
+            function parseStatusEnv(relativePath) {
+              const out = {};
+              for (const line of readText(relativePath).split(/\r?\n/)) {
+                const index = line.indexOf('=');
+                if (index > 0) {
+                  out[line.slice(0, index)] = line.slice(index + 1);
+                }
+              }
+              return out;
+            }
+
+            function statusLabel(code) {
+              if (code === undefined || code === '') return 'Missing';
+              return String(code) === '0' ? 'Passed' : 'Issues found';
+            }
+
+            const staticStatus = parseStatusEnv(
+              'static-analysis-results/status.env'
+            );
+            const securityStatus = parseStatusEnv(
+              'security-analysis-results/status.env'
+            );
+            const testStatus = parseStatusEnv('backend-test-results/status.env');
+
+            const changedStaticFiles = readText(
+              'static-analysis-results/changed-python-files.txt'
+            ).trim().split(/\r?\n/).filter(Boolean);
+            const changedSecurityFiles = readText(
+              'security-analysis-results/changed-app-python-files.txt'
+            ).trim().split(/\r?\n/).filter(Boolean);
+
+            const ruffFindings = readJson(
+              'static-analysis-results/ruff-check.json',
+              []
+            );
+            const banditJson = readJson(
+              'security-analysis-results/bandit.json',
+              { results: [] }
+            );
+            const banditFindings = Array.isArray(banditJson.results)
+              ? banditJson.results
+              : [];
+
+            const pytestXml = readText('backend-test-results/pytest.xml');
+            const testsMatch = pytestXml.match(/tests="(\d+)"/);
+            const failuresMatch = pytestXml.match(/failures="(\d+)"/);
+            const errorsMatch = pytestXml.match(/errors="(\d+)"/);
+            const skippedMatch = pytestXml.match(/skipped="(\d+)"/);
+
+            const pytestSummary = testsMatch
+              ? `${testsMatch[1]} tests, ${failuresMatch?.[1] || '0'} failures, ${errorsMatch?.[1] || '0'} errors, ${skippedMatch?.[1] || '0'} skipped`
+              : 'pytest summary unavailable';
+
+            const ruffCodes = [...new Set(
+              ruffFindings.map((item) => item.code).filter(Boolean)
+            )];
+            const banditCodes = [...new Set(
+              banditFindings.map((item) => item.test_id).filter(Boolean)
+            )];
+
+            const ruffRows = ruffFindings.slice(0, 10).map((item) => {
+              const file = item.filename || 'unknown';
+              const line = item.location?.row || '?';
+              return `- ${item.code || 'Ruff'} ${file}:${line} — ${item.message || 'No message'}`;
+            });
+
+            const banditRows = banditFindings.slice(0, 10).map((item) => {
+              const file = item.filename || 'unknown';
+              const line = item.line_number || '?';
+              return `- ${item.test_id || 'Bandit'} ${file}:${line} — ${item.issue_text || 'No message'}`;
+            });
+
+            const body = [
+              marker,
+              '## CI Evidence Summary',
+              '',
+              `Run: CI evidence report #${context.runNumber}, attempt ${process.env.GITHUB_RUN_ATTEMPT || 'unknown'}`,
+              `Run ID: ${context.runId}`,
+              `Head SHA: ${context.payload.pull_request.head.sha}`,
+              '',
+              '| Signal | GitHub gate | Tool result | Scope |',
+              '|---|---|---|---|',
+              `| Static analysis / Ruff | Non-blocking | ${statusLabel(staticStatus.ruff_check_status === '0' && staticStatus.ruff_format_status === '0' ? '0' : '1')} | ${staticStatus.ruff_scope || 'unknown'} |`,
+              `| Security analysis / Bandit | Non-blocking | ${statusLabel(securityStatus.bandit_status)} | ${securityStatus.bandit_scope || 'unknown'} |`,
+              `| Backend unit/API tests | Blocking | ${statusLabel(testStatus.pytest_status)} | backend/tests |`,
+              '',
+              '### Static analysis',
+              '',
+              `- Changed files checked: ${changedStaticFiles.length || 0}`,
+              `- Ruff check status: ${staticStatus.ruff_check_status ?? 'missing'}`,
+              `- Ruff format status: ${staticStatus.ruff_format_status ?? 'missing'}`,
+              `- Finding codes: ${ruffCodes.length ? ruffCodes.join(', ') : 'none'}`,
+              '',
+              ruffRows.length ? ruffRows.join('\n') : 'No Ruff findings recorded.',
+              '',
+              '### Security analysis',
+              '',
+              `- Changed app files checked: ${changedSecurityFiles.length || 0}`,
+              `- Bandit status: ${securityStatus.bandit_status ?? 'missing'}`,
+              `- Finding codes: ${banditCodes.length ? banditCodes.join(', ') : 'none'}`,
+              '',
+              banditRows.length ? banditRows.join('\n') : 'No Bandit findings recorded.',
+              '',
+              '### Backend unit/API tests',
+              '',
+              `- pytest status: ${testStatus.pytest_status ?? 'missing'}`,
+              `- ${pytestSummary}`,
+              '',
+              '### Optional AI stages',
+              '',
+              '- AI-generated targeted tests: skipped unless the `ci-ai-report` label is present.',
+              '- AI final reviewer report: skipped unless the `ci-ai-report` label is present.',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number, per_page: 100 }
+            );
+            const existing = comments.find((comment) =>
+              comment.user?.type === 'Bot' && comment.body?.includes(marker)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
 
   ai-targeted-tests:
     name: AI-generated targeted tests
@@ -280,7 +524,12 @@ jobs:
           github-token: ${{ github.token }}
           script: |
             const marker = '<!-- ai-ci-final-report -->';
-            const body = `${marker}\n${process.env.CI_FINAL_REPORT}`;
+            const metadata = [
+              `Run: CI evidence report #${context.runNumber}, attempt ${process.env.GITHUB_RUN_ATTEMPT || 'unknown'}`,
+              `Run ID: ${context.runId}`,
+              `Head SHA: ${context.payload.pull_request.head.sha}`,
+            ].join('\n');
+            const body = `${marker}\n${metadata}\n\n${process.env.CI_FINAL_REPORT}`;
             const { owner, repo } = context.repo;
             const issue_number = context.payload.pull_request.number;
             const comments = await github.paginate(
@@ -304,4 +553,136 @@ jobs:
                 issue_number,
                 body,
               });
+            }
+
+  ci-readiness-gate:
+    name: CI readiness gate
+    runs-on: ubuntu-latest
+    needs:
+      - static-analysis
+      - security-analysis
+      - backend-tests
+      - ai-targeted-tests
+      - deterministic-summary
+      - ai-final-report
+    if: always()
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download CI evidence artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ci-evidence
+          merge-multiple: false
+
+      - name: Evaluate merge readiness
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const root = 'ci-evidence';
+            const labels = context.payload.pull_request.labels.map(
+              (label) => label.name
+            );
+            const aiRequested = labels.includes('ci-ai-report');
+
+            function readText(relativePath) {
+              try {
+                return fs.readFileSync(path.join(root, relativePath), 'utf8');
+              } catch {
+                return '';
+              }
+            }
+
+            function parseStatusEnv(relativePath) {
+              const out = {};
+              for (const line of readText(relativePath).split(/\r?\n/)) {
+                const index = line.indexOf('=');
+                if (index > 0) {
+                  out[line.slice(0, index)] = line.slice(index + 1);
+                }
+              }
+              return out;
+            }
+
+            function nonzero(value) {
+              return value !== undefined && value !== '' && String(value) !== '0';
+            }
+
+            const staticStatus = parseStatusEnv(
+              'static-analysis-results/status.env'
+            );
+            const securityStatus = parseStatusEnv(
+              'security-analysis-results/status.env'
+            );
+            const testStatus = parseStatusEnv('backend-test-results/status.env');
+            const aiTestStatus = parseStatusEnv(
+              'ai-targeted-test-results/ci-results/ai-targeted-tests/status.env'
+            );
+
+            const blockers = [];
+            const observations = [];
+
+            if (nonzero(staticStatus.ruff_check_status)) {
+              blockers.push(`Ruff check status ${staticStatus.ruff_check_status}`);
+            }
+            if (nonzero(staticStatus.ruff_format_status)) {
+              blockers.push(`Ruff format status ${staticStatus.ruff_format_status}`);
+            }
+            if (nonzero(securityStatus.bandit_status)) {
+              blockers.push(`Bandit status ${securityStatus.bandit_status}`);
+            }
+            if (nonzero(testStatus.pytest_status)) {
+              blockers.push(`Backend pytest status ${testStatus.pytest_status}`);
+            }
+
+            if (aiRequested) {
+              if (aiTestStatus.pytest_status === undefined) {
+                blockers.push('AI-generated targeted test status missing');
+              } else if (nonzero(aiTestStatus.pytest_status)) {
+                blockers.push(
+                  `AI-generated targeted pytest status ${aiTestStatus.pytest_status}`
+                );
+              }
+            } else {
+              observations.push('AI checks were not requested because `ci-ai-report` is absent.');
+            }
+
+            const readiness = blockers.length
+              ? 'Blocked by CI evidence'
+              : 'Ready for manual review';
+
+            await core.summary
+              .addHeading('CI readiness gate')
+              .addTable([
+                [
+                  { data: 'Readiness', header: true },
+                  { data: readiness, header: true },
+                ],
+                ['Ruff check status', staticStatus.ruff_check_status ?? 'missing'],
+                ['Ruff format status', staticStatus.ruff_format_status ?? 'missing'],
+                ['Bandit status', securityStatus.bandit_status ?? 'missing'],
+                ['Backend pytest status', testStatus.pytest_status ?? 'missing'],
+                [
+                  'AI targeted pytest status',
+                  aiRequested ? aiTestStatus.pytest_status ?? 'missing' : 'not requested',
+                ],
+              ])
+              .addRaw(
+                blockers.length
+                  ? `\n\nBlockers:\n${blockers.map((item) => `- ${item}`).join('\n')}`
+                  : '\n\nNo blocking CI evidence found.'
+              )
+              .addRaw(
+                observations.length
+                  ? `\n\nObservations:\n${observations.map((item) => `- ${item}`).join('\n')}`
+                  : ''
+              )
+              .write();
+
+            if (blockers.length) {
+              core.setFailed(`${readiness}: ${blockers.join('; ')}`);
             }

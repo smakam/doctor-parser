@@ -131,10 +131,15 @@ a final reviewer-facing evidence report. Dynamic analysis is intentionally left
 for a follow-up because it requires live app startup in CI.
 
 **Decision**: Add a repository-owned GitHub Actions workflow named `CI evidence
-report`. Run Ruff, Bandit, and pytest as deterministic evidence producers. Keep
-static and security jobs non-blocking initially so baseline findings in the
-existing codebase do not prevent introducing the experiment; preserve their
-status in artifacts for the final AI report. Keep backend pytest blocking. Gate
+report`. Run Ruff, Bandit, and pytest as deterministic evidence producers. Scope
+Ruff and Bandit to changed backend Python files initially so baseline findings in
+the existing codebase do not drown out PR-specific evidence. Keep static and
+security jobs non-blocking at the GitHub job level; preserve their tool exit
+codes and changed-file scope in artifacts. Add an always-on deterministic
+summary comment so reviewers can see evidence-only Ruff/Bandit findings without
+opening artifacts. Add a final readiness gate that fails when blocking evidence
+exists, so report publication success is not confused with PR readiness. Keep
+backend pytest blocking. Gate
 AI-generated targeted tests and the final AI report behind the `ci-ai-report`
 label and same-repository PR check. Allow the test-generation step to write only
 `ci-generated-tests/backend/test_pr_targeted.py`; fail the job if any other file
@@ -151,6 +156,10 @@ cost and secret exposure under explicit control.
 **Impact**:
 - Static analysis, security analysis, and backend unit/API tests run on pull
   requests.
+- A deterministic PR comment summarizes Ruff, Bandit, and pytest evidence for
+  manual reviewers.
+- The final `CI readiness gate` check is the machine-readable ready/blocked
+  signal for the PR.
 - AI-generated tests are temporary CI artifacts, not committed source.
 - The final report summarizes tool outputs, generated tests, cross-signal
   interpretation, manual-review focus, and uncertainty.

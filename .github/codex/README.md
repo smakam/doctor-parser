@@ -57,15 +57,29 @@ generate targeted tests and summarize evidence for the manual reviewer.
 
 Always-on deterministic jobs:
 
-- `Static analysis`: Ruff check and Ruff format check for `backend/`.
-- `Security analysis`: Bandit scan for `backend/app`.
+- `Static analysis`: Ruff check and Ruff format check for changed backend
+  Python files.
+- `Security analysis`: Bandit scan for changed backend app Python files.
 - `Backend unit and API tests`: pytest against `backend/tests`.
+- `Deterministic CI evidence summary`: upserts a PR comment summarizing Ruff,
+  Bandit, and pytest results from uploaded artifacts.
+- `CI readiness gate`: evaluates the collected evidence and produces the final
+  GitHub pass/fail readiness signal.
 
-Static and security jobs are initially configured as evidence-producing,
-non-blocking checks because this experiment is being introduced into an existing
-codebase that may have baseline lint/security findings. Their pass/fail status
-is still recorded in artifacts for the final AI report. Backend pytest remains a
-blocking correctness check.
+Static and security jobs are evidence-producing, non-blocking checks. They
+always complete successfully at the GitHub job level, but record Ruff/Bandit
+tool exit codes and changed-file scope in artifacts for the final AI report.
+Backend pytest remains a blocking correctness check.
+
+The deterministic summary comment is always published and marked with
+`<!-- ci-evidence-summary -->`. It makes evidence-only Ruff/Bandit findings
+visible on the PR without requiring reviewers to open workflow artifacts.
+
+The readiness gate is the final machine-readable status for manual-review
+readiness. It fails when blocking CI evidence exists, including nonzero Ruff,
+Bandit, backend pytest, or requested AI-generated targeted-test status. A green
+summary/report job means the report was published; only the readiness gate says
+whether CI considers the PR ready for manual review.
 
 Label-gated AI jobs:
 
@@ -79,10 +93,10 @@ workflow workspace. They are executed by pytest but are not committed back to
 the repository. The workflow fails if the generation step modifies any file
 outside `ci-generated-tests/backend/test_pr_targeted.py`.
 
-The final report reads uploaded CI artifacts and upserts one PR comment marked
-with `<!-- ai-ci-final-report -->`. It summarizes static analysis, security
-analysis, backend unit/API tests, generated targeted tests, cross-signal
-interpretation, and manual-review focus.
+The optional AI final report reads uploaded CI artifacts and upserts one PR
+comment marked with `<!-- ai-ci-final-report -->`. It summarizes static
+analysis, security analysis, backend unit/API tests, generated targeted tests,
+cross-signal interpretation, and manual-review focus.
 
 Dynamic analysis is intentionally not included in this workflow yet. A follow-up
 experiment should add live app startup and an OWASP ZAP baseline scan, then feed
