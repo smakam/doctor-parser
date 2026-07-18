@@ -325,7 +325,7 @@ jobs:
               marker,
               '## CI Evidence Summary',
               '',
-              `Run: CI evidence report #${context.runNumber}, attempt ${context.runAttempt}`,
+              `Run: CI evidence report #${context.runNumber}, attempt ${process.env.GITHUB_RUN_ATTEMPT || 'unknown'}`,
               `Run ID: ${context.runId}`,
               `Head SHA: ${context.payload.pull_request.head.sha}`,
               '',
@@ -525,7 +525,7 @@ jobs:
           script: |
             const marker = '<!-- ai-ci-final-report -->';
             const metadata = [
-              `Run: CI evidence report #${context.runNumber}, attempt ${context.runAttempt}`,
+              `Run: CI evidence report #${context.runNumber}, attempt ${process.env.GITHUB_RUN_ATTEMPT || 'unknown'}`,
               `Run ID: ${context.runId}`,
               `Head SHA: ${context.payload.pull_request.head.sha}`,
             ].join('\n');
