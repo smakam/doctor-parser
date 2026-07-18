@@ -325,6 +325,10 @@ jobs:
               marker,
               '## CI Evidence Summary',
               '',
+              `Run: CI evidence report #${context.runNumber}, attempt ${context.runAttempt}`,
+              `Run ID: ${context.runId}`,
+              `Head SHA: ${context.payload.pull_request.head.sha}`,
+              '',
               '| Signal | GitHub gate | Tool result | Scope |',
               '|---|---|---|---|',
               `| Static analysis / Ruff | Non-blocking | ${statusLabel(staticStatus.ruff_check_status === '0' && staticStatus.ruff_format_status === '0' ? '0' : '1')} | ${staticStatus.ruff_scope || 'unknown'} |`,
@@ -520,7 +524,12 @@ jobs:
           github-token: ${{ github.token }}
           script: |
             const marker = '<!-- ai-ci-final-report -->';
-            const body = `${marker}\n${process.env.CI_FINAL_REPORT}`;
+            const metadata = [
+              `Run: CI evidence report #${context.runNumber}, attempt ${context.runAttempt}`,
+              `Run ID: ${context.runId}`,
+              `Head SHA: ${context.payload.pull_request.head.sha}`,
+            ].join('\n');
+            const body = `${marker}\n${metadata}\n\n${process.env.CI_FINAL_REPORT}`;
             const { owner, repo } = context.repo;
             const issue_number = context.payload.pull_request.number;
             const comments = await github.paginate(
