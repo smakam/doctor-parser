@@ -43,7 +43,7 @@ async def correct(
         "clinic_name": "clinic_name",
         "specialisation": "specialisation",
         "qualifications": "qualifications",
-        "medical_registration_no": "medical_registration_no",
+        "medical_registration_no": "qualifications",
         "address": "address",
         "pin_code": "pin_code",
         "consultation_timings": "consultation_timings",
