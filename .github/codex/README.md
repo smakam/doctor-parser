@@ -61,11 +61,17 @@ Always-on deterministic jobs:
   Python files.
 - `Security analysis`: Bandit scan for changed backend app Python files.
 - `Backend unit and API tests`: pytest against `backend/tests`.
+- `Deterministic CI evidence summary`: upserts a PR comment summarizing Ruff,
+  Bandit, and pytest results from uploaded artifacts.
 
 Static and security jobs are evidence-producing, non-blocking checks. They
 always complete successfully at the GitHub job level, but record Ruff/Bandit
 tool exit codes and changed-file scope in artifacts for the final AI report.
 Backend pytest remains a blocking correctness check.
+
+The deterministic summary comment is always published and marked with
+`<!-- ci-evidence-summary -->`. It makes evidence-only Ruff/Bandit findings
+visible on the PR without requiring reviewers to open workflow artifacts.
 
 Label-gated AI jobs:
 
@@ -79,10 +85,10 @@ workflow workspace. They are executed by pytest but are not committed back to
 the repository. The workflow fails if the generation step modifies any file
 outside `ci-generated-tests/backend/test_pr_targeted.py`.
 
-The final report reads uploaded CI artifacts and upserts one PR comment marked
-with `<!-- ai-ci-final-report -->`. It summarizes static analysis, security
-analysis, backend unit/API tests, generated targeted tests, cross-signal
-interpretation, and manual-review focus.
+The optional AI final report reads uploaded CI artifacts and upserts one PR
+comment marked with `<!-- ai-ci-final-report -->`. It summarizes static
+analysis, security analysis, backend unit/API tests, generated targeted tests,
+cross-signal interpretation, and manual-review focus.
 
 Dynamic analysis is intentionally not included in this workflow yet. A follow-up
 experiment should add live app startup and an OWASP ZAP baseline scan, then feed
