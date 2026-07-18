@@ -151,5 +151,5 @@ def _check_access(record, requesting_user_id: Optional[str]) -> None:
         raise HTTPException(status_code=401, detail="Authentication required.")
 
     uploader = str(record.uploaded_by_customer_id) if record.uploaded_by_customer_id else None
-    if uploader != requesting_user_id and record.session_id != requesting_user_id:
+    if uploader != requesting_user_id and record.session_id == requesting_user_id:
         raise HTTPException(status_code=403, detail="Access denied.")
