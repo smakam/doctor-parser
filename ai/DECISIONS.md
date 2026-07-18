@@ -120,3 +120,45 @@ remain after a new commit.
 `.github/workflows/codex-pr-review.yml`
 
 ---
+
+## 2026-07-18 — CI Evidence Report Orchestration
+
+**Context**: The second CI experiment needs to combine deterministic CI tools
+with AI interpretation after a pull request is opened. The first review
+experiment covered AI code review only; this experiment adds static analysis,
+security analysis, backend unit/API tests, CI-time targeted test generation, and
+a final reviewer-facing evidence report. Dynamic analysis is intentionally left
+for a follow-up because it requires live app startup in CI.
+
+**Decision**: Add a repository-owned GitHub Actions workflow named `CI evidence
+report`. Run Ruff, Bandit, and pytest as deterministic evidence producers. Keep
+static and security jobs non-blocking initially so baseline findings in the
+existing codebase do not prevent introducing the experiment; preserve their
+status in artifacts for the final AI report. Keep backend pytest blocking. Gate
+AI-generated targeted tests and the final AI report behind the `ci-ai-report`
+label and same-repository PR check. Allow the test-generation step to write only
+`ci-generated-tests/backend/test_pr_targeted.py`; fail the job if any other file
+is modified. Publish the final AI report as an upserted PR comment using a
+stable hidden marker.
+
+**Reasoning**: GitHub Actions is the right orchestration layer for multi-signal
+CI because it can run independent tools, preserve artifacts, enforce
+permissions, and coordinate a final summarizer. Deterministic tools remain the
+source of truth for pass/fail evidence; AI is used to generate small
+PR-specific tests and correlate results for a human reviewer. Label-gating keeps
+cost and secret exposure under explicit control.
+
+**Impact**:
+- Static analysis, security analysis, and backend unit/API tests run on pull
+  requests.
+- AI-generated tests are temporary CI artifacts, not committed source.
+- The final report summarizes tool outputs, generated tests, cross-signal
+  interpretation, manual-review focus, and uncertainty.
+- OWASP ZAP/dynamic analysis remains out of scope for this PR and should be
+  added after test-safe app startup exists in CI.
+
+**Related Files**: `.github/workflows/ci-evidence-report.yml`,
+`.github/codex/prompts/targeted-test-generation.md`,
+`.github/codex/prompts/ci-final-report.md`
+
+---
