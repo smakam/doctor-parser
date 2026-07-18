@@ -12,6 +12,15 @@ from app.models.nameboard import NameboardExtraction
 from app.schemas.nameboard import CorrectRequest
 
 
+def normalize_registration_number(value: Optional[str]) -> Optional[str]:
+    """Normalize a medical registration number supplied during review."""
+    if value is None:
+        return None
+
+    normalized = " ".join(value.strip().upper().split())
+    return normalized or None
+
+
 async def accept(record: NameboardExtraction, db: AsyncSession) -> NameboardExtraction:
     record.status = "ACCEPTED"
     record.reviewed_at = datetime.utcnow()
@@ -54,6 +63,11 @@ async def correct(
         corrected_value: Optional[str] = getattr(corrections, correction_attr, None)
         if corrected_value is None:
             continue
+
+        if correction_attr == "medical_registration_no":
+            corrected_value = normalize_registration_number(corrected_value)
+            if corrected_value is None:
+                continue
 
         existing = current_data.get(data_key, {})
         # Preserve original under _original key for audit trail
