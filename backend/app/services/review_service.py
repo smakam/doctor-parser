@@ -2,13 +2,14 @@
 NameboardReviewService — handles accept, reject, and correct operations after
 a user reviews the extraction result.
 """
+
 from datetime import datetime
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.nameboard import NameboardExtraction
-from app.schemas.nameboard import CorrectRequest, ExtractedField
+from app.schemas.nameboard import CorrectRequest
 
 
 async def accept(record: NameboardExtraction, db: AsyncSession) -> NameboardExtraction:

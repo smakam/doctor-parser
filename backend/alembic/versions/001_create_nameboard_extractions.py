@@ -4,6 +4,7 @@ Revision ID: 001
 Revises:
 Create Date: 2026-03-20
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -31,12 +32,20 @@ def upgrade() -> None:
         sa.Column("image_quality", JSONB(), nullable=True),
         sa.Column("extraction_warnings", JSONB(), nullable=True),
         sa.Column("geocoding_status", sa.String(), nullable=True),
-        sa.Column("status", sa.String(), nullable=True, server_default="PENDING_REVIEW"),
+        sa.Column(
+            "status", sa.String(), nullable=True, server_default="PENDING_REVIEW"
+        ),
         sa.Column("created_at", sa.DateTime(), server_default=sa.text("NOW()")),
         sa.Column("reviewed_at", sa.DateTime(), nullable=True),
     )
-    op.create_index("ix_nameboard_extractions_session_id", "nameboard_extractions", ["session_id"])
-    op.create_index("ix_nameboard_extractions_customer_id", "nameboard_extractions", ["uploaded_by_customer_id"])
+    op.create_index(
+        "ix_nameboard_extractions_session_id", "nameboard_extractions", ["session_id"]
+    )
+    op.create_index(
+        "ix_nameboard_extractions_customer_id",
+        "nameboard_extractions",
+        ["uploaded_by_customer_id"],
+    )
 
 
 def downgrade() -> None:

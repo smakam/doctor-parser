@@ -2,6 +2,7 @@
 NameboardExtractionService — sends OCR text to GPT-4o and returns structured fields.
 Applies cross-image confidence boost when the same value appears in multiple images.
 """
+
 import json
 from dataclasses import dataclass
 from typing import Optional
@@ -76,9 +77,13 @@ class ExtractionResult:
 
 
 async def extract_fields(ocr_results: list[ImageOcrResult]) -> ExtractionResult:
-    concatenated_text = "\n---\n".join(r.raw_text for r in ocr_results if r.raw_text.strip())
+    concatenated_text = "\n---\n".join(
+        r.raw_text for r in ocr_results if r.raw_text.strip()
+    )
     if not concatenated_text.strip():
-        raise HTTPException(status_code=422, detail="No readable text found in the uploaded images.")
+        raise HTTPException(
+            status_code=422, detail="No readable text found in the uploaded images."
+        )
 
     settings = get_settings()
     client = AsyncOpenAI(api_key=settings.openai_api_key)
@@ -98,7 +103,9 @@ async def extract_fields(ocr_results: list[ImageOcrResult]) -> ExtractionResult:
     try:
         raw = json.loads(response.choices[0].message.content)
     except (json.JSONDecodeError, KeyError) as e:
-        raise HTTPException(status_code=502, detail=f"GPT-4o returned invalid JSON: {e}")
+        raise HTTPException(
+            status_code=502, detail=f"GPT-4o returned invalid JSON: {e}"
+        )
 
     result = _parse_gpt_response(raw)
     result = _apply_cross_image_boost(result, ocr_results)
@@ -110,7 +117,9 @@ def _parse_gpt_response(raw: dict) -> ExtractionResult:
         data = raw.get(key)
         if not data:
             return None
-        return FieldResult(value=data.get("value"), confidence=float(data.get("confidence", 0.0)))
+        return FieldResult(
+            value=data.get("value"), confidence=float(data.get("confidence", 0.0))
+        )
 
     pii = raw.get("pii_fields", {})
     return ExtractionResult(
@@ -127,7 +136,9 @@ def _parse_gpt_response(raw: dict) -> ExtractionResult:
     )
 
 
-def _apply_cross_image_boost(result: ExtractionResult, ocr_results: list[ImageOcrResult]) -> ExtractionResult:
+def _apply_cross_image_boost(
+    result: ExtractionResult, ocr_results: list[ImageOcrResult]
+) -> ExtractionResult:
     """
     For each extracted field, if the same value appears in text from 2+ images,
     boost confidence by CONFIDENCE_BOOST_MULTIPLIER (capped at 1.0).
@@ -159,6 +170,8 @@ def _apply_cross_image_boost(result: ExtractionResult, ocr_results: list[ImageOc
         )
 
         if images_with_value >= CONFIDENCE_BOOST_MIN_IMAGES:
-            field_result.confidence = min(1.0, field_result.confidence * CONFIDENCE_BOOST_MULTIPLIER)
+            field_result.confidence = min(
+                1.0, field_result.confidence * CONFIDENCE_BOOST_MULTIPLIER
+            )
 
     return result

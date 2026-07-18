@@ -45,7 +45,9 @@ async def _verify_supabase_jwt(token: str) -> dict:
     if not key:
         raise JWTError("No public key available in Supabase JWKS")
 
-    return jwt.decode(token, key, algorithms=["RS256", "ES256"], options={"verify_aud": False})
+    return jwt.decode(
+        token, key, algorithms=["RS256", "ES256"], options={"verify_aud": False}
+    )
 
 
 @dataclass
@@ -67,7 +69,9 @@ async def get_current_user_optional(
         token = authorization.split(" ", 1)[1]
         try:
             payload = await _verify_supabase_jwt(token)
-            return UserContext(id=payload["sub"], role=payload.get("role", "authenticated"))
+            return UserContext(
+                id=payload["sub"], role=payload.get("role", "authenticated")
+            )
         except (JWTError, Exception) as e:
             logger.warning("JWT verification failed: %s", e)
 
@@ -84,5 +88,6 @@ async def get_current_user_required(
     user = await get_current_user_optional(authorization, x_guest_session)
     if not user:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=401, detail="Authentication required")
     return user

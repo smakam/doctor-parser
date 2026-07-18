@@ -18,7 +18,9 @@ class Settings(BaseSettings):
 
     mappls_api_key: str = ""  # kept for backwards compat, no longer used
 
-    pii_encryption_key: str  # Fernet key — generate with: Fernet.generate_key().decode()
+    pii_encryption_key: (
+        str  # Fernet key — generate with: Fernet.generate_key().decode()
+    )
 
     secret_key: str
     environment: str = "development"

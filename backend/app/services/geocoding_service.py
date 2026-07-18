@@ -2,6 +2,7 @@
 NameboardGeocodingService — derives lat/long, city, and state using Google Maps Geocoding API.
 Uses a tiered strategy: full address → pin code centroid → address only → not geocoded.
 """
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -18,14 +19,18 @@ class GeocodingResult:
     longitude: Optional[float]
     city: Optional[str]
     state: Optional[str]
-    geocoding_status: str   # FULL_ADDRESS / PIN_CODE_CENTROID / ADDRESS_ONLY / NOT_GEOCODED
+    geocoding_status: (
+        str  # FULL_ADDRESS / PIN_CODE_CENTROID / ADDRESS_ONLY / NOT_GEOCODED
+    )
     geocoding_confidence: float
 
 
 async def geocode(address: Optional[str], pin_code: Optional[str]) -> GeocodingResult:
     _not_geocoded = GeocodingResult(
-        latitude=None, longitude=None,
-        city=None, state=None,
+        latitude=None,
+        longitude=None,
+        city=None,
+        state=None,
         geocoding_status="NOT_GEOCODED",
         geocoding_confidence=0.0,
     )
@@ -37,12 +42,16 @@ async def geocode(address: Optional[str], pin_code: Optional[str]) -> GeocodingR
     api_key = settings.google_vision_api_key  # same GCP key works for Geocoding API
 
     if address and pin_code:
-        result = await _call_geocode_api(api_key, f"{address} {pin_code}", "FULL_ADDRESS", 0.95)
+        result = await _call_geocode_api(
+            api_key, f"{address} {pin_code}", "FULL_ADDRESS", 0.95
+        )
         if result:
             return result
 
     if pin_code:
-        result = await _call_geocode_api(api_key, f"{pin_code} India", "PIN_CODE_CENTROID", 0.60)
+        result = await _call_geocode_api(
+            api_key, f"{pin_code} India", "PIN_CODE_CENTROID", 0.60
+        )
         if result:
             return result
 
@@ -93,8 +102,10 @@ async def _call_geocode_api(
             state = component["long_name"]
 
     return GeocodingResult(
-        latitude=lat, longitude=lng,
-        city=city, state=state,
+        latitude=lat,
+        longitude=lng,
+        city=city,
+        state=state,
         geocoding_status=status,
         geocoding_confidence=confidence,
     )
