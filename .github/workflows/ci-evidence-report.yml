@@ -217,6 +217,17 @@ jobs:
             | tee ci-results/ai-targeted-tests/pytest-output.txt
           pytest_status=${PIPESTATUS[0]}
           set -e
+
+          if [ "$pytest_status" -eq 5 ] && \
+             grep -q "collected 0 items" ci-results/ai-targeted-tests/pytest-output.txt; then
+            {
+              echo
+              echo "No targeted tests were generated for this PR."
+              echo "Treating pytest exit code 5 as success because zero collected tests is an explicit non-blocking outcome for AI-targeted test generation."
+            } >> ci-results/ai-targeted-tests/pytest-output.txt
+            pytest_status=0
+          fi
+
           echo "pytest_status=$pytest_status" \
             > ci-results/ai-targeted-tests/status.env
           exit "$pytest_status"
