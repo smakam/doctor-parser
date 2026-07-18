@@ -57,15 +57,16 @@ generate targeted tests and summarize evidence for the manual reviewer.
 
 Always-on deterministic jobs:
 
-- `Static analysis`: Ruff check and Ruff format check for `backend/`.
-- `Security analysis`: Bandit scan for `backend/app`.
+- `Static analysis`: Ruff check and Ruff format check for changed backend
+  Python files.
+- `Security analysis`: Bandit scan for changed backend app Python files.
 - `Backend unit and API tests`: pytest against `backend/tests`.
 
 Static and security jobs are initially configured as evidence-producing,
 non-blocking checks because this experiment is being introduced into an existing
 codebase that may have baseline lint/security findings. Their pass/fail status
-is still recorded in artifacts for the final AI report. Backend pytest remains a
-blocking correctness check.
+and changed-file scope are still recorded in artifacts for the final AI report.
+Backend pytest remains a blocking correctness check.
 
 Label-gated AI jobs:
 
